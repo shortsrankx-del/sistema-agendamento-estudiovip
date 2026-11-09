@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="barber-hero">
+  <div class="hero-shade"></div>
+  <div class="hero-content">
+    <p class="hero-kicker"><span></span> TRADIÇÃO • ESTILO • PERSONALIDADE</p>
+    <div class="hero-monogram">B</div>
+    <p class="hero-overline">{{ shop_name }}</p>
+    <h1>Seu estilo.<br><em>Seu momento.</em></h1>
+    <p class="hero-description">Mais que um corte, uma experiência feita para você.</p>
+    <a class="btn hero-cta" href="{{ url_for('booking_page') }}">AGENDAR MEU HORÁRIO <span>↗</span></a>
+  </div>
+  <div class="hero-bottom"><span>BARBER SHOP</span><span>EST. 2026</span></div>
+  <a class="scroll-cue" href="#instagram" aria-label="Ver mais">↓</a>
+</section>
+<section class="social-section" id="instagram">
+  <div class="section-label">ACOMPANHE NOSSO TRABALHO</div>
+  <h2>Nosso <em>Instagram</em></h2>
+  <p class="section-copy">Confira nossos cortes, novidades e um pouco do dia a dia da barbearia.</p>
+  {% if instagram_username %}
+    <div class="instagram-frame"><iframe src="https://www.instagram.com/{{ instagram_username }}/embed" title="Instagram da barbearia" loading="lazy" allowtransparency="true"></iframe></div>
+    <a class="instagram-button" href="{{ instagram_url if '://' in instagram_url else 'https://' + instagram_url }}" target="_blank" rel="noopener">@{{ instagram_username }} <span>ABRIR INSTAGRAM ↗</span></a>
+  {% else %}
+    <div class="instagram-placeholder"><span class="instagram-glyph">◎</span><p>Em breve, novidades e cortes por aqui.</p><small>O perfil do Instagram será exibido nesta área.</small></div>
+  {% endif %}
+</section>
+<section class="location-section" id="localizacao">
+  <div class="location-copy"><div class="section-label">VENHA NOS VISITAR</div><h2>Estamos te<br><em>esperando.</em></h2><p class="section-copy">Um espaço preparado para cuidar do seu estilo. Faça seu agendamento e venha viver a experiência.</p>
+    {% if address %}<div class="address-line"><span>⌖</span><div><small>ENDEREÇO</small><strong>{{ address }}</strong></div></div><a class="btn map-button" href="https://www.google.com/maps/search/?api=1&query={{ address|urlencode }}" target="_blank" rel="noopener">COMO CHEGAR ↗</a>{% else %}<p class="location-hint">Configure o endereço da barbearia no painel administrativo.</p>{% endif %}
+  </div>
+  <div class="map-frame">{% if address %}<iframe title="Localização da barbearia" src="https://www.google.com/maps?q={{ address|urlencode }}&output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>{% else %}<div class="map-empty"><span>⌖</span><p>Localização da barbearia</p></div>{% endif %}</div>
+</section>
+<section class="final-cta"><p>SEU PRÓXIMO CORTE COMEÇA AQUI</p><a href="{{ url_for('booking_page') }}">RESERVAR MEU HORÁRIO ↗</a></section>
+{% endblock %}

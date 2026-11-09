@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="customer-access-card">
+  <p class="eyebrow">ÁREA DO CLIENTE</p>
+  <h1>Acesse seus <em>cortes</em></h1>
+  <p class="muted">Informe o código privado recebido ao finalizar seu agendamento. Se acabou de agendar neste navegador, seu histórico será aberto automaticamente.</p>
+  <form method="post" class="form-card">
+    <label for="access_token">Código de acesso</label>
+    <input id="access_token" name="access_token" type="password" autocomplete="off" required placeholder="Cole seu código privado">
+    <button class="btn full" type="submit">ACESSAR MEUS CORTES</button>
+  </form>
+  <p class="customer-security">Por segurança, não é possível consultar agendamentos apenas informando um número de telefone.</p>
+  <a class="text-link" href="{{ url_for('home') }}">Voltar ao início</a>
+</section>
+{% endblock %}

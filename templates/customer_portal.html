@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="customer-page">
+  <div class="customer-heading"><p class="eyebrow">ÁREA DO CLIENTE</p><h1>Meus <em>cortes</em></h1><p class="muted">Consulte seu histórico e cancele seus próximos horários.</p></div>
+  <div class="customer-list">
+  {% for a in appointments %}
+    <article class="customer-appointment">
+      <div class="customer-appointment-top"><div><small>{{ a.starts_at.strftime('%d/%m/%Y · %H:%M') }}</small><h2>{{ a.service.name }}</h2></div><span class="status {{ a.status }}">{{ a.status }}</span></div>
+      <div class="customer-meta"><span>Valor: <b>R$ {{ '%.2f'|format(a.service.price)|replace('.', ',') }}</b></span><span>Pagamento: <b>{{ 'PIX' if a.payment_method == 'pix' else 'Presencial' }}</b></span><span>Duração: <b>{{ a.service.duration }} min</b></span></div>
+      {% if a.status == 'confirmado' and a.starts_at > now + timedelta(hours=12) %}
+      <div class="customer-actions">
+        <form method="post" action="{{ url_for('customer_cancel', token=access_token, appointment_id=a.id) }}" onsubmit="return confirm('Deseja realmente cancelar este agendamento?')"><button class="btn btn-danger small" type="submit">CANCELAR CORTE</button></form>
+
+      </div>
+      {% elif a.status == 'confirmado' %}
+      <p class="customer-note">O prazo para cancelar pelo site é de 12 horas antes do corte. Para solicitar ajuda, entre em contato diretamente com a barbearia.</p>
+      {% endif %}
+    </article>
+  {% else %}<p class="muted">Nenhum corte encontrado.</p>{% endfor %}
+  </div>
+  <p class="customer-security">Este link é privado. Não compartilhe com outras pessoas.</p>
+  <a class="text-link" href="{{ url_for('home') }}">Voltar ao início</a>
+</section>
+{% endblock %}

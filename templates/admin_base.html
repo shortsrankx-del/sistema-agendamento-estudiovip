@@ -1,0 +1,52 @@
+{% extends 'base.html' %}{% block content %}<section class="notification-center" id="notification-center">
+  <div class="notification-head"><div><span class="eyebrow">ATIVIDADE DA AGENDA</span><h2>Notificações <b id="notification-count">0</b></h2></div><button type="button" class="btn small btn-outline" id="mark-notifications-read">MARCAR COMO LIDAS</button></div>
+  <div id="notification-list" class="notification-list"><p class="muted">Carregando notificações...</p></div>
+</section>
+<div class="admin-title"><div><p class="eyebrow">CENTRAL DE GESTÃO</p><h1>{% block page_title %}Painel{% endblock %}</h1></div><a class="btn small" href="{{ url_for('home') }}" target="_blank">VER SITE ↗</a></div>{% block admin_content %}{% endblock %}
+{% block scripts %}
+<script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+<script>
+(() => {
+ const list = document.getElementById('notification-list');
+ const count = document.getElementById('notification-count');
+ const render = items => {
+   list.innerHTML = '';
+   if (!items.length) { list.innerHTML = '<p class="muted">Nenhuma notificação por enquanto.</p>'; return; }
+   items.forEach(item => {
+     const row = document.createElement('article');
+     row.className = 'notification-item ' + (item.read ? 'is-read' : '');
+     const title = document.createElement('strong'); title.textContent = item.title;
+     const message = document.createElement('p'); message.textContent = item.message;
+     const date = document.createElement('small'); date.textContent = item.created_at;
+     row.append(title, message, date); list.appendChild(row);
+   });
+ };
+ const load = async () => {
+   try {
+     const response = await fetch('{{ url_for("admin_notifications") }}');
+     if (!response.ok) return;
+     const data = await response.json(); count.textContent = data.unread; render(data.notifications);
+   } catch (e) { list.innerHTML = '<p class="muted">Não foi possível carregar as notificações.</p>'; }
+ };
+ document.getElementById('mark-notifications-read').addEventListener('click', async () => {
+   await fetch('{{ url_for("mark_notifications_read") }}', {method:'POST'});
+   load();
+ });
+ load();
+ // Polling de segurança mantém a lista atualizada se a conexão WebSocket cair.
+ const fallbackPoll = setInterval(load, 15000);
+ if (window.io) {
+   const socket = io('/admin');
+   socket.on('disconnect', () => load());
+   socket.on('admin_notification', item => {
+     load();
+     const toast = document.createElement('div');
+     toast.className = 'live-toast';
+     toast.textContent = item.title + ': ' + item.message;
+     document.body.appendChild(toast);
+     setTimeout(() => toast.remove(), 6000);
+   });
+ }
+})();
+</script>
+{% endblock %}{% endblock %}

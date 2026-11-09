@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="booking-wizard-wrap">
+  <div class="booking-wizard-heading">
+    <a class="wizard-back-home" href="{{ url_for('home') }}">← Voltar ao início</a>
+    <p class="eyebrow">RESERVE SEU HORÁRIO</p>
+    <h1>Seu próximo corte <em>começa aqui.</em></h1>
+    <p class="muted">Siga as etapas para encontrar o melhor horário.</p>
+  </div>
+
+  <div class="wizard-card" id="booking-wizard">
+    <div class="wizard-progress-top">
+      <div class="wizard-step-label"><span id="step-counter">ETAPA 1 DE 4</span><strong id="step-name">Escolha o serviço</strong></div>
+      <div class="wizard-progress-track"><span id="wizard-progress-fill"></span></div>
+      <div class="wizard-step-dots" aria-label="Progresso do agendamento">
+        <span class="wizard-dot active">1</span><span class="wizard-dot">2</span><span class="wizard-dot">3</span><span class="wizard-dot">4</span>
+      </div>
+    </div>
+
+    <form method="post" action="{{ url_for('book') }}" id="booking-form">
+      <input type="hidden" name="service_id" id="selected-service-id" required>
+      <input type="hidden" name="date" id="selected-date" required>
+      <input type="hidden" name="time" id="selected-time" required>
+
+      <section class="wizard-panel active" data-step="1">
+        <div class="wizard-panel-heading"><p class="eyebrow">ETAPA 01</p><h2>O que vamos fazer hoje?</h2><p class="muted">Escolha o serviço desejado.</p></div>
+        <div class="service-choice-grid" id="service-choice-grid">
+          {% for s in services %}
+          <button class="service-choice" type="button" data-service-id="{{ s.id }}" data-service-name="{{ s.name|e }}" data-service-price="{{ '%.2f'|format(s.price) }}" data-service-duration="{{ s.duration }}">
+            <span class="service-choice-icon">✂</span><span class="service-choice-info"><strong>{{ s.name }}</strong><small>{{ s.description or (s.duration|string + ' minutos') }}</small></span>
+            <span class="service-choice-price">R$ {{ '%.2f'|format(s.price)|replace('.', ',') }}</span><span class="service-choice-check">✓</span>
+          </button>
+          {% else %}
+          <p class="empty-services">Nenhum serviço disponível no momento. Entre em contato com a barbearia.</p>
+          {% endfor %}
+        </div>
+        <div class="wizard-actions wizard-actions-end"><button class="btn" type="button" id="to-date" disabled>CONTINUAR <span>→</span></button></div>
+      </section>
+
+      <section class="wizard-panel" data-step="2" hidden>
+        <div class="wizard-panel-heading"><p class="eyebrow">ETAPA 02</p><h2>Escolha o melhor dia</h2><p class="muted">Veja a disponibilidade de cada data antes de selecionar.</p></div>
+        <div class="calendar-shell">
+          <div class="calendar-header"><button type="button" class="calendar-nav" id="prev-month" aria-label="Mês anterior">‹</button><strong id="calendar-month-label"></strong><button type="button" class="calendar-nav" id="next-month" aria-label="Próximo mês">›</button></div>
+          <div class="calendar-weekdays"><span>DOM</span><span>SEG</span><span>TER</span><span>QUA</span><span>QUI</span><span>SEX</span><span>SÁB</span></div>
+          <div class="calendar-grid" id="calendar-grid"></div>
+          <div class="calendar-legend"><span><i class="legend-dot available"></i> Disponível</span><span><i class="legend-dot limited"></i> Últimas vagas</span><span><i class="legend-dot unavailable"></i> Esgotado/indisponível</span></div>
+        </div>
+        <div class="selected-day-detail" id="selected-day-detail" hidden>
+          <div class="selected-day-detail-top"><div><small>DISPONIBILIDADE DA DATA</small><strong id="selected-day-title"></strong></div><b id="selected-day-count"></b></div>
+          <div class="availability-progress"><span id="availability-progress-fill"></span></div>
+          <p id="selected-day-caption">A barra verde mostra quanto da agenda deste dia já está preenchida.</p>
+        </div>
+        <div class="wizard-actions"><button class="btn btn-outline" type="button" data-back="1">← VOLTAR</button><button class="btn" type="button" id="to-time" disabled>ESCOLHER HORÁRIO →</button></div>
+      </section>
+
+      <section class="wizard-panel" data-step="3" hidden>
+        <div class="wizard-panel-heading"><p class="eyebrow">ETAPA 03</p><h2>Qual horário funciona para você?</h2><p class="muted" id="time-step-subtitle">Selecione um dos horários disponíveis.</p></div>
+        <div class="booking-summary-strip" id="time-summary"></div>
+        <div class="time-choice-grid" id="time-choice-grid"><p class="muted">Carregando horários...</p></div>
+        <div class="wizard-actions"><button class="btn btn-outline" type="button" data-back="2">← VOLTAR</button><button class="btn" type="button" id="to-details" disabled>CONTINUAR →</button></div>
+      </section>
+
+      <section class="wizard-panel" data-step="4" hidden>
+        <div class="wizard-panel-heading"><p class="eyebrow">ETAPA 04</p><h2>Finalize seu agendamento</h2><p class="muted">Só precisamos de alguns dados para confirmar.</p></div>
+        <div class="booking-final-summary" id="final-summary"></div>
+        <div class="customer-fields">
+          <label>Seu nome<input name="name" required minlength="2" autocomplete="name" placeholder="Como podemos te chamar?"></label>
+          <label>WhatsApp / telefone<input name="phone" required autocomplete="tel" inputmode="tel" placeholder="(00) 00000-0000"></label>
+          <label class="payment-label">Como deseja pagar?
+            <div class="payment-choice-grid">
+              <label class="payment-choice"><input type="radio" name="payment_method" value="presencial" checked><span><strong>Na barbearia</strong><small>Pagamento presencial</small></span></label>
+              <label class="payment-choice"><input type="radio" name="payment_method" value="pix"><span><strong>PIX</strong><small>Chave informada na confirmação</small></span></label>
+            </div>
+          </label>
+        </div>
+        <div class="wizard-actions"><button class="btn btn-outline" type="button" data-back="3">← VOLTAR</button><button class="btn" type="submit">CONFIRMAR AGENDAMENTO ✓</button></div>
+        <p class="wizard-privacy-note">Seus dados serão usados apenas para organizar e confirmar seu atendimento.</p>
+      </section>
+    </form>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+window.BARBERFLOW={slotsUrl:"{{ url_for('slots') }}",calendarUrl:"{{ url_for('calendar_availability') }}"};
+</script>
+{% endblock %}

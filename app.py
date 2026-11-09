@@ -393,17 +393,52 @@ def login():
 def logout():
     session.clear(); return redirect(url_for('home'))
 
+
 @app.route('/admin')
 @admin_required
 def dashboard():
     today = date.today()
-    today_appts = Appointment.query.filter(db.func.date(Appointment.starts_at) == today.isoformat()).order_by(Appointment.starts_at).all()
-    upcoming = Appointment.query.filter(Appointment.starts_at >= datetime.now(), Appointment.status != 'cancelado').order_by(Appointment.starts_at).limit(8).all()
+
+    # Agendamentos de hoje — compatível com PostgreSQL e SQLite
+    inicio_dia = datetime.combine(today, time.min)
+    fim_dia = inicio_dia + timedelta(days=1)
+
+    today_appts = Appointment.query.filter(
+        Appointment.starts_at >= inicio_dia,
+        Appointment.starts_at < fim_dia
+    ).order_by(Appointment.starts_at).all()
+
+    # Próximos agendamentos
+    upcoming = Appointment.query.filter(
+        Appointment.starts_at >= datetime.now(),
+        Appointment.status != 'cancelado'
+    ).order_by(Appointment.starts_at).limit(8).all()
+
+    # Início do mês
     month_start = datetime(today.year, today.month, 1)
-    completed = Appointment.query.filter(Appointment.starts_at >= month_start, Appointment.status == 'concluido').all()
+
+    # Atendimentos concluídos no mês
+    completed = Appointment.query.filter(
+        Appointment.starts_at >= month_start,
+        Appointment.status == 'concluido'
+    ).all()
+
     revenue = sum(a.service.price for a in completed)
-    month_count = Appointment.query.filter(Appointment.starts_at >= month_start, Appointment.status != 'cancelado').count()
-    return render_template('dashboard.html', today_appts=today_appts, upcoming=upcoming, revenue=revenue, month_count=month_count)
+
+    # Quantidade de agendamentos no mês
+    month_count = Appointment.query.filter(
+        Appointment.starts_at >= month_start,
+        Appointment.status != 'cancelado'
+    ).count()
+
+    return render_template(
+        'dashboard.html',
+        today_appts=today_appts,
+        upcoming=upcoming,
+        revenue=revenue,
+        month_count=month_count
+    )
+
 
 @app.route('/admin/agendamentos')
 @admin_required

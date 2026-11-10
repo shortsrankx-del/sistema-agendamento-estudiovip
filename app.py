@@ -1,5 +1,6 @@
 import os
 from datetime import datetime, date, time, timedelta
+from zoneinfo import ZoneInfo
 from functools import wraps
 import secrets
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
@@ -7,6 +8,18 @@ from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import and_, inspect, text
 from flask_socketio import SocketIO, emit
+
+# Todos os horários de funcionamento e agendamentos usam o horário de Brasília.
+# Mantemos datetime sem timezone no banco para preservar os agendamentos existentes.
+BRAZIL_TZ = ZoneInfo("America/Sao_Paulo")
+
+def now_brazil():
+    """Retorna a data/hora atual de Brasília como datetime sem timezone."""
+    return datetime.now(BRAZIL_TZ).replace(tzinfo=None)
+
+def today_brazil():
+    """Retorna a data atual de Brasília."""
+    return now_brazil().date()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'troque-esta-chave-antes-de-publicar')
@@ -53,7 +66,7 @@ class Appointment(db.Model):
     payment_method = db.Column(db.String(20), nullable=False, default='presencial')
     status = db.Column(db.String(20), nullable=False, default='confirmado')
     notes = db.Column(db.String(255), default='')
-    created_at = db.Column(db.DateTime, default=datetime.now)
+    created_at = db.Column(db.DateTime, default=now_brazil)
     manage_token = db.Column(db.String(64), unique=True, index=True, nullable=True)
 
 class AdminNotification(db.Model):
@@ -62,7 +75,7 @@ class AdminNotification(db.Model):
     message = db.Column(db.String(255), nullable=False)
     event_type = db.Column(db.String(30), nullable=False, default='info')
     appointment_id = db.Column(db.Integer, db.ForeignKey('appointment.id'), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.now, nullable=False)
+    created_at = db.Column(db.DateTime, default=now_brazil, nullable=False)
     read = db.Column(db.Boolean, default=False, nullable=False)
 
 class Setting(db.Model):
@@ -161,7 +174,7 @@ def get_available_slots(selected, service, exclude_appointment_id=None):
     ]
 
     if (
-        selected < date.today()
+        selected < today_brazil()
         or selected.weekday() not in work_days
         or day_text in closed_dates
     ):
@@ -201,7 +214,7 @@ def get_available_slots(selected, service, exclude_appointment_id=None):
     available = []
     total = 0
     cursor = start
-    now = datetime.now()
+    now = now_brazil()
 
     while cursor < close:
         end = cursor + timedelta(minutes=service.duration)
@@ -213,7 +226,7 @@ def get_available_slots(selected, service, exclude_appointment_id=None):
 )
 
         if not overlaps_lunch:
-            if selected > date.today() or cursor > now:
+            if selected > today_brazil() or cursor > now:
                 total += 1
 
                 conflict = any(
@@ -337,7 +350,7 @@ def customer_portal(token):
     # The unguessable token is the private access credential; no phone-only lookup.
     items = [item for item in Appointment.query.order_by(Appointment.starts_at.desc()).all()
              if phone_digits(item.phone) == phone_digits(appt.phone)]
-    return render_template('customer_portal.html', appointments=items, access_token=token, now=datetime.now())
+    return render_template('customer_portal.html', appointments=items, access_token=token, now=now_brazil())
 
 @app.route('/cliente/<token>/cancelar/<int:appointment_id>', methods=['POST'])
 def customer_cancel(token, appointment_id):
@@ -349,7 +362,7 @@ def customer_cancel(token, appointment_id):
         flash('Este agendamento já está cancelado.', 'error')
     elif appt.status != 'confirmado':
         flash('Este agendamento não pode mais ser cancelado por aqui.', 'error')
-    elif appt.starts_at <= datetime.now() + timedelta(hours=12):
+    elif appt.starts_at <= now_brazil() + timedelta(hours=12):
         flash('Cancelamentos precisam ser feitos com pelo menos 12 horas de antecedência. Fale com a barbearia para solicitar ajuda.', 'error')
     else:
         appt.status = 'cancelado'
@@ -397,7 +410,7 @@ def logout():
 @app.route('/admin')
 @admin_required
 def dashboard():
-    today = date.today()
+    today = today_brazil()
 
     # Agendamentos de hoje — compatível com PostgreSQL e SQLite
     inicio_dia = datetime.combine(today, time.min)
@@ -410,7 +423,7 @@ def dashboard():
 
     # Próximos agendamentos
     upcoming = Appointment.query.filter(
-        Appointment.starts_at >= datetime.now(),
+        Appointment.starts_at >= now_brazil(),
         Appointment.status != 'cancelado'
     ).order_by(Appointment.starts_at).limit(8).all()
 
@@ -444,9 +457,9 @@ def dashboard():
 def appointments():
     selected = request.args.get('date', '')
     try:
-        day = date.fromisoformat(selected) if selected else date.today()
+        day = date.fromisoformat(selected) if selected else today_brazil()
     except ValueError:
-        day = date.today()
+        day = today_brazil()
         selected = ''
 
     day_start = datetime.combine(day, time.min)
@@ -584,7 +597,7 @@ def change_password():
 @app.route('/admin/relatorios')
 @admin_required
 def reports():
-    today = date.today(); first = datetime(today.year, today.month, 1)
+    today = today_brazil(); first = datetime(today.year, today.month, 1)
     done = Appointment.query.filter(Appointment.starts_at >= first, Appointment.status == 'concluido').all()
     by_service = {}
     for a in done: by_service[a.service.name] = by_service.get(a.service.name, 0) + 1

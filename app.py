@@ -439,19 +439,66 @@ def dashboard():
         month_count=month_count
     )
 
-
 @app.route('/admin/agendamentos')
 @admin_required
 def appointments():
     selected = request.args.get('date', '')
-    query = Appointment.query
-    if selected:
-        try:
-            d = date.fromisoformat(selected)
-            query = query.filter(Appointment.starts_at >= datetime.combine(d, time.min), Appointment.starts_at < datetime.combine(d + timedelta(days=1), time.min))
-        except ValueError: pass
-    items = query.order_by(Appointment.starts_at.desc()).limit(250).all()
-    return render_template('appointments.html', appointments=items, selected=selected)
+    try:
+        day = date.fromisoformat(selected) if selected else date.today()
+    except ValueError:
+        day = date.today()
+        selected = ''
+
+    day_start = datetime.combine(day, time.min)
+    day_end = day_start + timedelta(days=1)
+
+    items = Appointment.query.filter(
+        Appointment.starts_at >= day_start,
+        Appointment.starts_at < day_end
+    ).order_by(Appointment.starts_at).all()
+
+    # Janela de funcionamento (configurável) + intervalo de almoço fixo 12h–14h
+    try:
+        open_t = time.fromisoformat(setting('opening_time'))
+    except (ValueError, TypeError):
+        open_t = time(9, 0)
+    try:
+        close_t = time.fromisoformat(setting('closing_time'))
+    except (ValueError, TypeError):
+        close_t = time(19, 0)
+
+    step = timedelta(minutes=30)
+    cursor = datetime.combine(day, open_t)
+    close_dt = datetime.combine(day, close_t)
+    lunch_start = datetime.combine(day, time(12, 0))
+    lunch_end = datetime.combine(day, time(14, 0))
+
+    rows = []
+    while cursor < close_dt:
+        if lunch_start <= cursor < lunch_end:
+            rows.append({'type': 'lunch', 'label': lunch_start.strftime('%H:%M'),
+                         'range': '12h às 14h'})
+            cursor = lunch_end
+            continue
+        slot_end = cursor + step
+        slot_appts = [a for a in items if cursor <= a.starts_at < slot_end]
+        rows.append({'type': 'slot', 'label': cursor.strftime('%H:%M'),
+                     'appointments': slot_appts, 'free': not slot_appts})
+        cursor += step
+
+    weekdays = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira',
+                'Sexta-feira', 'Sábado', 'Domingo']
+    status_labels = {'confirmado': 'Confirmado', 'concluido': 'Concluído',
+                     'faltou': 'Faltou', 'cancelado': 'Cancelado'}
+
+    return render_template(
+        'appointments.html',
+        rows=rows, appointments=items, selected=selected, day=day,
+        prev_day=(day - timedelta(days=1)).isoformat(),
+        next_day=(day + timedelta(days=1)).isoformat(),
+        weekday_label=weekdays[day.weekday()],
+        status_labels=status_labels,
+    )
 
 @app.route('/admin/agendamento/<int:appointment_id>/status', methods=['POST'])
 @admin_required
